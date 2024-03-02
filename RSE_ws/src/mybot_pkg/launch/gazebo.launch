@@ -1,49 +1,122 @@
 <?xml version="1.0"?>
 <launch>
 
-    <arg name="model" default="$(find mybot_pkg)/urdf/my_bot.urdf"/>
+    <arg name="model" default="$(find mybot_pkg)/urdf/my_bot.urdf" />
     <arg name="namespace" default="/steer_bot" />
     <arg name="world_name" default="$(find mybot_pkg)/worlds/city.world" />
-    <arg name="cmd_timeout" default="0.5"/>
-    <arg name="x" default="0.0"/>
-    <arg name="y" default="0.0"/>
+    <arg name="cmd_timeout" default="0.5" />
+    <arg name="x" default="0.0" />
+    <arg name="y" default="0.0" />
     <arg name="z" default="1.0" />
-    <arg name="roll" default="0.0"/>
-    <arg name="pitch" default="0.0"/>
-    <arg name="yaw" default="0.0"/>
+    <arg name="roll" default="0.0" />
+    <arg name="pitch" default="0.0" />
+    <arg name="yaw" default="0.0" />
 
     <group ns="$(arg namespace)">
 
         <!-- Gazebo  -->
         <include file="$(find gazebo_ros)/launch/empty_world.launch">
-            <arg name="world_name" default="$(arg world_name)"/>
+            <arg name="world_name" default="$(arg world_name)" />
         </include>
 
         <!-- Load the robot description -->
-        <param name="robot_description" command="xacro $(arg model)"/>
+        <param name="robot_description" command="xacro $(arg model)" />
 
         <!-- Load ros_controllers configuration parameters -->
-        <rosparam file="$(find steer_bot_control)/config/ctrl_ackermann_steering_controller.yaml" command="load" ns="$(arg namespace)" />
-        <rosparam file="$(find steer_bot_control)/config/ctrl_gains.yaml" command="load" ns="$(arg namespace)" />
-        <rosparam file="$(find steer_bot_control)/config/ctrl_joint_state_publisher.yaml" command="load" ns="$(arg namespace)" />
-        <rosparam file="$(find steer_bot_control)/config/ctrl_steer_bot_hardware_gazebo.yaml" command="load" ns="$(arg namespace)" />
+        <rosparam file="$(find steer_bot_control)/config/ctrl_ackermann_steering_controller.yaml"
+            command="load" ns="$(arg namespace)" />
+        <rosparam file="$(find steer_bot_control)/config/ctrl_gains.yaml" command="load"
+            ns="$(arg namespace)" />
+        <rosparam file="$(find steer_bot_control)/config/ctrl_joint_state_publisher.yaml"
+            command="load" ns="$(arg namespace)" />
+        <rosparam file="$(find steer_bot_control)/config/ctrl_steer_bot_hardware_gazebo.yaml"
+            command="load" ns="$(arg namespace)" />
 
         <!-- Spawn the controllers -->
-        <node pkg="controller_manager" type="spawner" name="controller_spawner" ns="$(arg namespace)"
+        <node pkg="controller_manager" type="spawner" name="controller_spawner"
+            ns="$(arg namespace)"
             args="joint_state_publisher ackermann_steering_controller"
             output="screen" respawn="false" />
 
         <!-- Launch  the robot state publisher -->
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
-            <param name="publish_frequency" value="50.0"/>
+            <param name="publish_frequency" value="50.0" />
         </node>
 
         <!-- Launch a rqt steering GUI for publishing to /steer_bot/steer_drive_controller/cmd_vel -->
-        <!-- <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="rqt_robot_steering" >
-            <param name="default_topic" value="$(arg namespace)/ackermann_steering_controller/cmd_vel"/>
+        <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="rqt_robot_steering">
+            <param name="default_topic"
+                value="$(arg namespace)/ackermann_steering_controller/cmd_vel" />
+        </node>
+
+        <node pkg="tf" type="static_transform_publisher" name="velodyne2_to_velodyne"
+            args="0 0 0 0 0 0 velodyne2 steer_bot/velodyne2 100" />
+
+        <!-- <node pkg="octomap_server" type="octomap_server_node" name="octomap_server"
+            output="screen">
+            <param name="base_frame_id" type="string" value="base_link" />
+            <param name="frame_id" type="string" value="odom" />
+            <param name="point_cloud_topic" type="string" value="/steer_bot/points" />
+            <remap from="cloud_in" to="/steer_bot/points" />
         </node> -->
-		
-        <node pkg="tf" type="static_transform_publisher" name="velodyne2_to_velodyne" args="0 0 0 0 0 0 velodyne2 steer_bot/velodyne2 100" />
+
+        <!-- run pointcloud_to_laserscan node -->
+        <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node"
+            name="pointcloud_to_laserscan">
+            <remap from="cloud_in" to="/steer_bot/points" />
+            <remap from="scan" to="/steer_bot/scan" />
+            <rosparam>
+                target_frame: base_link
+                transform_tolerance: 0.01
+                min_height: 0.0
+                max_height: 1.0
+
+                angle_min: -1.5708
+                angle_max: 1.5708
+                angle_increment: 0.0087
+                scan_time: 0.3333
+                range_min: 0.45
+                range_max: 4.0
+                use_inf: true
+                inf_epsilon: 1.0
+
+                concurrency_level: 1
+            </rosparam>
+        </node>
+
+        <!-- Launch Gmapping -->
+        <!-- <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+            <param name="base_frame" value="base_link" />
+            <param name="odom_frame" value="odom" />
+            <param name="map_frame" value="map" />
+            <remap from="scan" to="/steer_bot/scan" />
+            <param name="map_update_interval" value="5.0" /> -->
+        <!-- <param file="$(find mybot_pkg)/../mymap.yaml" command="load" /> -->
+        <!-- </node> -->
+
+        <!-- Start RTAB-Map node -->
+        <!-- <node pkg="rtabmap_ros" type="rtabmap" name="rtabmap" output="screen">
+            <param name="rtabmap_args" value="delete_db_on_start" />
+            <remap from="/camera/color/image_raw" to="/steer_bot/camera/color/image_raw" />
+            <remap from="/camera/depth/image_raw" to="/steer_bot/camera/depth/image_raw" />
+            <remap from="/odom" to="/steer_bot/ackermann_steering_controller/odom" />
+        </node> -->
+
+        <!-- Launch the map server -->
+        <node name="map_server" pkg="map_server" type="map_server"
+            args="$(find mybot_pkg)/maps/map.yaml" />
+
+        <!-- Launch the AMCL node -->
+        <node name="amcl" pkg="amcl" type="amcl">
+            <param name="odom_model_type" value="diff" />
+            <param name="base_frame_id" value="base_link" />
+            <param name="odom_frame_id" value="odom" />
+            <param name="global_frame_id" value="map" />
+            <!-- Add more parameters as needed -->
+        </node>
+
+        <node name="teleop_gui_node" pkg="teleop_bot" type="teleop_gui.py" output="screen" />
+
 
         <!-- Spawn robot in Gazebo -->
         <node name="spawn_vehicle" pkg="gazebo_ros" type="spawn_model"
@@ -52,6 +125,10 @@
                 -x $(arg x) -y $(arg y) -z $(arg z)
                 -R $(arg roll) -P $(arg pitch) -Y $(arg yaw)"
             respawn="false" output="screen" />
+
+        <!-- Save the map using map_server -->
+        <!-- <node name="map_saver" pkg="map_server" type="map_saver"
+            args="-f mymap map:=/steer_bot/map" /> -->
 
     </group>
 

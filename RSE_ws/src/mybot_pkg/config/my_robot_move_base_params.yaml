@@ -1,0 +1,31 @@
+controller_frequency: 20.0
+
+planner_patience: 5.0
+
+planner_frequency: 0.5
+
+planner_window_x: 10.0
+planner_window_y: 10.0
+planner_window_z: 0.2
+
+max_recovery_behaviors: 3
+
+oscillation_timeout: 10.0
+
+oscillation_distance: 0.2
+
+base_global_planner: "navfn/NavfnROS"
+base_local_planner: "base_local_planner/TrajectoryPlannerROS"
+
+TrajectoryPlannerROS:
+  max_vel_x: 0.3
+  min_vel_x: 0.1
+  max_vel_theta: 0.6
+  min_vel_theta: -0.6
+  acc_lim_x: 0.5
+  acc_lim_theta: 1.0
+  holonomic_robot: false
+
+NavfnROS:
+  allow_unknown: true
+  default_tolerance: 0.1
